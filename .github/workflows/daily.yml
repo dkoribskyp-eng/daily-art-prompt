@@ -2,7 +2,7 @@ name: Daily Prompt
 
 on:
   schedule:
-    - cron: "0 9 * * *"
+    - cron: "25 21 * * *"
   workflow_dispatch:
 
 jobs:
