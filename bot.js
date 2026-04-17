@@ -8,7 +8,7 @@ function mulberry32(seed) {
     seed |= 0;
     seed = (seed + 0x6d2b79f5) | 0;
     let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (seed >>> 7), 61 | seed)) ^ t;
+    t = (t + Math.imul(t ^ (seed >>> 7), 61 | seed)) ^ seed;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
@@ -59,16 +59,35 @@ function pickTwo(rand) {
   return [...PROMPTS].sort(() => rand() - 0.5).slice(0, 2);
 }
 
-// Image
+// Image (NOW WITH HEX LABELS INSIDE)
 function createImage(colors) {
-  const canvas = createCanvas(900, 220);
+  const canvas = createCanvas(900, 260);
   const ctx = canvas.getContext("2d");
 
   const w = canvas.width / colors.length;
 
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = "bold 20px sans-serif";
+
   colors.forEach((c, i) => {
+    const x = i * w;
+
+    // color block
     ctx.fillStyle = c;
-    ctx.fillRect(i * w, 0, w, canvas.height);
+    ctx.fillRect(x, 0, w, canvas.height);
+
+    // contrast text color
+    const rgb = parseInt(c.slice(1), 16);
+    const r = (rgb >> 16) & 255;
+    const g = (rgb >> 8) & 255;
+    const b = rgb & 255;
+    const brightness = (r + g + b) / 3;
+
+    ctx.fillStyle = brightness > 140 ? "#000000" : "#ffffff";
+
+    // hex label
+    ctx.fillText(c.toUpperCase(), x + w / 2, canvas.height / 2);
   });
 
   return canvas.toBuffer("image/png");
@@ -78,7 +97,11 @@ function createImage(colors) {
 async function send(message, image) {
   const form = new FormData();
   form.append("content", message);
-  form.append("file", image, "palette.png");
+
+  form.append("file", image, {
+    filename: "palette.png",
+    contentType: "image/png",
+  });
 
   await fetch(process.env.WEBHOOK_URL, {
     method: "POST",
@@ -96,12 +119,10 @@ async function run() {
   const image = createImage(colors);
 
   const message = [
-    "🎨 Daily Drawing Prompt",
+    "# Daily Drawing Prompt",
     "",
-    `A: ${a}`,
-    `B: ${b}`,
-    "",
-    colors.join("  ")
+    `> **A:** _${a}_`,
+    `> **B:** _${b}_`
   ].join("\n");
 
   await send(message, image);
