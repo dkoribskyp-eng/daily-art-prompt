@@ -1,6 +1,7 @@
 const { createCanvas } = require("canvas");
 const fetch = require("node-fetch");
 const FormData = require("form-data");
+const fs = require("fs");
 
 // RNG
 function mulberry32(seed) {
@@ -8,7 +9,7 @@ function mulberry32(seed) {
     seed |= 0;
     seed = (seed + 0x6d2b79f5) | 0;
     let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (seed >>> 7), 61 | seed)) ^ seed;
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | seed)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
@@ -19,7 +20,8 @@ function dateToSeed(d) {
   );
 }
 
-// Colors
+// ─── COLOR SYSTEM (ADVANCED) ─────────────────────
+
 function hslToHex(h, s, l) {
   h = ((h % 360) + 360) % 360;
   s /= 100;
@@ -38,28 +40,55 @@ function hslToHex(h, s, l) {
 
 function generatePalette(rand) {
   const base = rand() * 360;
-  return Array.from({ length: 5 }, (_, i) =>
-    hslToHex(base + i * 25, 50 + rand() * 30, 40 + rand() * 20)
+  const types = ["Analogous", "Complementary", "Triadic", "Split"];
+
+  const type = types[Math.floor(rand() * types.length)];
+
+  let hues = [];
+
+  switch (type) {
+    case "Analogous":
+      hues = [base - 30, base - 15, base, base + 15, base + 30];
+      break;
+    case "Complementary":
+      hues = [base, base + 180, base + 10, base + 190, base + 20];
+      break;
+    case "Triadic":
+      hues = [base, base + 120, base + 240, base + 30, base + 150];
+      break;
+    case "Split":
+      hues = [base, base + 150, base + 210, base + 30, base + 330];
+      break;
+  }
+
+  return hues.map(h =>
+    hslToHex(
+      h,
+      45 + rand() * 35,
+      35 + rand() * 30
+    )
   );
 }
 
-// Prompts
-const PROMPTS = [
-  "a lonely figure in fog",
-  "a quiet room at night",
-  "a surreal landscape",
-  "a character in motion",
-  "a fading memory",
-  "a glowing object in darkness",
-  "a scene before a storm",
-  "a still emotional moment"
-];
+// ─── PROMPT SYSTEM (FILES) ───────────────────────
 
-function pickTwo(rand) {
-  return [...PROMPTS].sort(() => rand() - 0.5).slice(0, 2);
+function loadPrompts(path) {
+  const data = fs.readFileSync(path, "utf-8");
+  return data.split("\n").map(p => p.trim()).filter(Boolean);
 }
 
-// Image (NOW WITH HEX LABELS INSIDE)
+function pickPrompts(rand) {
+  const A = loadPrompts("prompts/a.txt");
+  const B = loadPrompts("prompts/b.txt");
+
+  const a = A[Math.floor(rand() * A.length)];
+  const b = B[Math.floor(rand() * B.length)];
+
+  return [a, b];
+}
+
+// ─── IMAGE ──────────────────────────────────────
+
 function createImage(colors) {
   const canvas = createCanvas(900, 260);
   const ctx = canvas.getContext("2d");
@@ -73,11 +102,9 @@ function createImage(colors) {
   colors.forEach((c, i) => {
     const x = i * w;
 
-    // color block
     ctx.fillStyle = c;
     ctx.fillRect(x, 0, w, canvas.height);
 
-    // contrast text color
     const rgb = parseInt(c.slice(1), 16);
     const r = (rgb >> 16) & 255;
     const g = (rgb >> 8) & 255;
@@ -85,15 +112,14 @@ function createImage(colors) {
     const brightness = (r + g + b) / 3;
 
     ctx.fillStyle = brightness > 140 ? "#000000" : "#ffffff";
-
-    // hex label
     ctx.fillText(c.toUpperCase(), x + w / 2, canvas.height / 2);
   });
 
   return canvas.toBuffer("image/png");
 }
 
-// Send
+// ─── SEND ───────────────────────────────────────
+
 async function send(message, image) {
   const form = new FormData();
   form.append("content", message);
@@ -109,13 +135,14 @@ async function send(message, image) {
   });
 }
 
-// Main
+// ─── MAIN ───────────────────────────────────────
+
 async function run() {
   const now = new Date();
   const rand = mulberry32(dateToSeed(now));
 
   const colors = generatePalette(rand);
-  const [a, b] = pickTwo(rand);
+  const [a, b] = pickPrompts(rand);
   const image = createImage(colors);
 
   const message = [
