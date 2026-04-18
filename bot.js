@@ -20,7 +20,7 @@ function dateToSeed(d) {
   );
 }
 
-// ─── COLOR SYSTEM (ADVANCED) ─────────────────────
+// ─── COLOR SYSTEM ───────────────────────────────
 
 function hslToHex(h, s, l) {
   h = ((h % 360) + 360) % 360;
@@ -40,37 +40,59 @@ function hslToHex(h, s, l) {
 
 function generatePalette(rand) {
   const base = rand() * 360;
-  const types = ["Analogous", "Complementary", "Triadic", "Split"];
 
+  const types = ["Analogous", "Complementary", "Split"];
   const type = types[Math.floor(rand() * types.length)];
+
+  const sat = 55 + rand() * 20;       // 55–75
+  const lightBase = 45 + rand() * 10; // 45–55
 
   let hues = [];
 
-  switch (type) {
-    case "Analogous":
-      hues = [base - 30, base - 15, base, base + 15, base + 30];
-      break;
-    case "Complementary":
-      hues = [base, base + 180, base + 10, base + 190, base + 20];
-      break;
-    case "Triadic":
-      hues = [base, base + 120, base + 240, base + 30, base + 150];
-      break;
-    case "Split":
-      hues = [base, base + 150, base + 210, base + 30, base + 330];
-      break;
+  if (type === "Analogous") {
+    const spread = 20 + rand() * 10;
+    hues = [
+      base - spread,
+      base - spread / 2,
+      base,
+      base + spread / 2,
+      base + spread
+    ];
   }
 
-  return hues.map(h =>
+  if (type === "Complementary") {
+    const comp = base + 180;
+    hues = [
+      base,
+      base + 10,
+      base - 10,
+      comp,
+      comp + 10
+    ];
+  }
+
+  if (type === "Split") {
+    const split1 = base + 150;
+    const split2 = base + 210;
+    hues = [
+      base,
+      base + 10,
+      split1,
+      split1 + 10,
+      split2
+    ];
+  }
+
+  return hues.map((h, i) =>
     hslToHex(
       h,
-      45 + rand() * 35,
-      35 + rand() * 30
+      sat,
+      Math.max(35, Math.min(65, lightBase + (i - 2) * 6))
     )
   );
 }
 
-// ─── PROMPT SYSTEM (FILES) ───────────────────────
+// ─── PROMPTS (FILES) ────────────────────────────
 
 function loadPrompts(path) {
   const data = fs.readFileSync(path, "utf-8");
