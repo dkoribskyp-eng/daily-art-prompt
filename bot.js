@@ -160,7 +160,8 @@ function generatePalette(rand) {
     ];
   }
 
-  return finalize(rand, raw, baseHue);
+  const palette = finalize(rand, raw, baseHue);
+  return { colors: palette, type };
 }
 
 // ─── PROMPTS ────────────────────────────────────
@@ -232,12 +233,14 @@ async function run() {
   const now = new Date();
   const rand = mulberry32(dateToSeed(now));
 
-  const { colors } = generatePalette(rand);
+  const { colors, type } = generatePalette(rand);
   const [a, b] = pickPrompts(rand);
   const image = createImage(colors);
 
   const message = [
     "# Daily Drawing Prompt",
+    "",
+    `**Palette:** ${type}`,
     "",
     `> **A:** _${a}_`,
     `> **B:** _${b}_`,
@@ -247,4 +250,4 @@ async function run() {
 }
 
 run();
-    
+                         
