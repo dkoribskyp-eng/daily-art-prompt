@@ -21,6 +21,14 @@ function dateToSeed(d) {
   );
 }
 
+// Cycles through the 4 types in order, one per day, never repeating back-to-back
+function getPaletteType(d) {
+  const types = ["Monochromatic", "Analogous", "Complementary", "Split"];
+  const epoch = Date.UTC(2000, 0, 1);
+  const dayIndex = Math.floor((d.getTime() - epoch) / 86400000);
+  return types[((dayIndex % types.length) + types.length) % types.length];
+}
+
 // ─── COLOR MATH ─────────────────────────────────
 
 function hslToHex(h, s, l) {
@@ -58,7 +66,6 @@ function hexToHsl(hex) {
   return { h: h * 360, s: s * 100, l: l * 100 };
 }
 
-// Remove colors that are too similar to each other
 function deduplicate(colors, hueThresh = 18, lightThresh = 12) {
   const unique = [];
   for (const c of colors) {
@@ -73,7 +80,6 @@ function deduplicate(colors, hueThresh = 18, lightThresh = 12) {
   return unique;
 }
 
-// Sort: group by hue family, then dark→light within each group
 function sortPalette(colors) {
   return [...colors].sort((a, b) => {
     const ha = hexToHsl(a), hb = hexToHsl(b);
@@ -83,10 +89,9 @@ function sortPalette(colors) {
   });
 }
 
-// Spread 7 lightness values evenly from dark to light
 function makeLights(rand) {
-  const lMin = 10 + rand() * 12;  // 10–22
-  const lMax = 72 + rand() * 18;  // 72–90
+  const lMin = 10 + rand() * 12;
+  const lMax = 72 + rand() * 18;
   const step = (lMax - lMin) / 6;
   return Array.from({ length: 7 }, (_, i) =>
     Math.max(8, Math.min(92, lMin + step * i + (rand() - 0.5) * 6))
@@ -94,7 +99,7 @@ function makeLights(rand) {
 }
 
 function makeColor(rand, hue, l) {
-  const s = 30 + rand() * 38; // 30–68
+  const s = 30 + rand() * 38;
   return hslToHex(hue + (rand() - 0.5) * 8, s, Math.max(8, Math.min(92, l)));
 }
 
@@ -110,15 +115,11 @@ function finalize(rand, raw, baseHue, target = 5) {
   return sortPalette(result.slice(0, target));
 }
 
-// ─── PALETTE TYPES ──────────────────────────────
+// ─── PALETTE GENERATORS ─────────────────────────
 
-function generatePalette(rand) {
+function generatePalette(rand, type) {
   const baseHue = rand() * 360;
   const ls = makeLights(rand);
-
-  const types = ["Monochromatic", "Analogous", "Complementary", "Split"];
-  const type = types[Math.floor(rand() * types.length)];
-
   let raw = [];
 
   if (type === "Monochromatic") {
@@ -126,7 +127,7 @@ function generatePalette(rand) {
   }
 
   if (type === "Analogous") {
-    const spread = 22 + rand() * 16; // 22–38°
+    const spread = 22 + rand() * 16;
     const hues = [
       baseHue - spread,
       baseHue - spread * 0.5,
@@ -199,10 +200,8 @@ function createImage(colors) {
 
   colors.forEach((c, i) => {
     const x = i * w;
-
     ctx.fillStyle = c;
     ctx.fillRect(x, 0, w, canvas.height);
-
     ctx.fillStyle = luminance(c) > 128 ? "#000000" : "#ffffff";
     ctx.fillText(c.toUpperCase(), x + w / 2, canvas.height / 2);
   });
@@ -231,8 +230,9 @@ async function send(message, image) {
 async function run() {
   const now = new Date();
   const rand = mulberry32(dateToSeed(now));
+  const type = getPaletteType(now);
 
-  const colors = generatePalette(rand);
+  const colors = generatePalette(rand, type);
   const [a, b] = pickPrompts(rand);
   const image = createImage(colors);
 
